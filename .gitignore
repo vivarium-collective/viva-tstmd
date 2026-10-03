@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.egg-info/
+dist/
+build/
+*.pyc
+.pytest_cache/
+output/
+run_adhesions_*/
+*.pickle
+.pbg/
+reports/published/
+.idea/
+.runs/
