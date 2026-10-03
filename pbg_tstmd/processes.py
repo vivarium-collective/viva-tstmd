@@ -24,23 +24,22 @@ from .analysis import (
 from .runtime import (
     TstmdSession,
     cell_area,
-    cell_centroid_physical,
+    cell_centroid,
     fiber_beads,
 )
 
 
 def metrics_for_snapshot(snap: dict, n_beads: int) -> dict:
     """The paper's observables for one state dump (2D analogs)."""
-    Lx = snap["Lx"]
-    centroid = cell_centroid_physical(snap)
+    L = float(snap["cpm"].shape[0])  # domain/lattice size in pixels (e.g. 200)
+    centroid = cell_centroid(snap)
     centers, dirs = fiber_beads(snap, n_beads)
     q = reorientation_q(centers, dirs, centroid) if len(centers) else float("nan")
     n_nodes = int(snap["positions"].shape[0])
     gc = giant_component_fraction(n_nodes, snap["bond_groups"])
-    # close/far distances scaled to the domain (paper used 30/50 um on 200 um).
+    # paper: 30 um close to cell, 50 um from boundary on a 200 um domain.
     dens = densification_factor(
-        snap["positions"], centroid, Lx,
-        close_px=0.15 * Lx, far_px=0.125 * Lx,
+        snap["positions"], centroid, L, close_px=30.0, far_px=40.0,
     )
     return {
         "mcs": int(snap["mcs"]),

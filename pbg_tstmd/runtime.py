@@ -213,15 +213,23 @@ def cell_area(snap: dict) -> int:
     return int((snap["cpm"] >= 1).sum())
 
 
-def cell_centroid_physical(snap: dict) -> np.ndarray:
-    """Cell centroid in bead/physical coordinates (0..Lx), for use with
-    ``positions``. The cpm grid is LATTICE x LATTICE; positions are 0..Lx."""
+def cell_centroid(snap: dict) -> np.ndarray:
+    """Cell centroid in the shared pixel frame used by bead ``positions``.
+
+    Empirically, bead positions live in the same [0, L] pixel frame as the
+    cpm lattice (fibers spill outside it), so the mapping is the identity:
+    the centroid is just the mean nonzero-sigma pixel. (x = columns,
+    y = rows, matching positions[:,0]=x, positions[:,1]=y.)
+    """
     ys, xs = np.nonzero(snap["cpm"] >= 1)
+    L = snap["cpm"].shape[0]
     if xs.size == 0:
-        return np.array([snap["Lx"] / 2, snap["Ly"] / 2])
-    cx = xs.mean() * (snap["Lx"] / LATTICE)
-    cy = ys.mean() * (snap["Ly"] / LATTICE)
-    return np.array([cx, cy])
+        return np.array([L / 2.0, L / 2.0])
+    return np.array([xs.mean(), ys.mean()])
+
+
+# backward-compat alias
+cell_centroid_physical = cell_centroid
 
 
 def fiber_beads(snap: dict, n_beads: int):
