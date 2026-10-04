@@ -93,16 +93,31 @@ def image_present(tag: str = IMAGE) -> bool:
         return False
 
 
-def _ymmsl_value(v) -> str:
+# Settings the engine declares as float — an int here raises a MUSCLE3 TypeError
+# ("is of type int, where float was expected"), so coerce them to float literals.
+_FLOAT_SETTINGS = frozenset({
+    "contour_length", "md_kT", "md_dt", "viscosity",
+    "make_ecm.spring_r0", "make_ecm.spring_k", "make_ecm.crosslink_k",
+    "make_ecm.helix_angle", "make_ecm.bend_t0", "make_ecm.bend_k",
+    "make_ecm.crosslink_max_r", "make_ecm.crosslink_quant_step",
+    "make_ecm.crosslink_bin_size",
+    "cellular_potts.lambda2", "cellular_potts.saturation",
+    "cellular_potts.dt", "cellular_potts.dx",
+})
+
+
+def _ymmsl_value(v, as_float: bool = False) -> str:
     if isinstance(v, bool):
         return "true" if v else "false"
+    if as_float and isinstance(v, int):
+        return repr(float(v))  # 15 -> "15.0"
     return str(v)
 
 
 def write_override(path: Path, settings: dict) -> None:
     lines = ["ymmsl_version: v0.1", "settings:"]
     for k, v in settings.items():
-        lines.append(f"  {k}: {_ymmsl_value(v)}")
+        lines.append(f"  {k}: {_ymmsl_value(v, as_float=(k in _FLOAT_SETTINGS))}")
     path.write_text("\n".join(lines) + "\n")
 
 

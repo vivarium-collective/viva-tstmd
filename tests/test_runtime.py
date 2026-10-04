@@ -67,3 +67,16 @@ def test_short_run_returns_snapshots():
     c = cell_centroid_physical(s0)
     assert 0 <= c[0] <= s0["Lx"] and 0 <= c[1] <= s0["Ly"]
     assert s0["positions"].shape[1] == 2
+
+
+def test_float_settings_coerced():
+    # Review Focus: float-typed engine settings written as int crash MUSCLE3.
+    import tempfile, pathlib
+    p = pathlib.Path(tempfile.mktemp())
+    write_override(p, {"make_ecm.spring_k": 15, "make_ecm.bend_k": 4,
+                       "make_ecm.strands": 1000, "mcs": 300})
+    text = p.read_text()
+    assert "make_ecm.spring_k: 15.0" in text   # coerced to float
+    assert "make_ecm.bend_k: 4.0" in text
+    assert "make_ecm.strands: 1000" in text     # int stays int
+    assert "mcs: 300" in text
