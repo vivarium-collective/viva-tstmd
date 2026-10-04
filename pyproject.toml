@@ -36,7 +36,8 @@ packages = ["pbg_tstmd"]
 markers = ["docker: integration tests that require a running Docker daemon + the TST-MD image"]
 
 [tool.uv.sources]
-vivarium-workbench = { path = "/Users/eranagmon/code/vivarium-workbench", editable = true }
-# viva-cpm is imported by this workspace (CPM engine + study helpers); pin to the
-# local checkout. Published builds should swap this for a versioned/git dependency.
-viva-cpm = { path = "/Users/eranagmon/code/viva-cpm", editable = true }
+# Git deps so the public repo is buildable by anyone. For local iteration, add a
+# uv.toml / pip-install -e the sibling checkouts to override these.
+vivarium-workbench = { git = "https://github.com/vivarium-collective/vivarium-workbench.git", branch = "main" }
+# viva-cpm is imported by this workspace (CPM engine + study helpers).
+viva-cpm = { git = "https://github.com/vivarium-collective/viva-cpm.git", branch = "main" }
