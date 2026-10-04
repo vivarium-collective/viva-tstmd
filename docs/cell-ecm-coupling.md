@@ -158,31 +158,82 @@ collapse leaves them behind.
   is almost certainly CPM-internal (surface tension `J` balancing a weak λ),
   **not** ECM-driven, and the Fig-4 *dragging/remodeling* still does not engage.
 
-## 6. The real blocker, refined
+## 6. The real blocker, corrected by an in-engine probe
 
-The adhesion-ring radius being **constant to the decimal** across *every* test
-(stiffness, λ, selection mode, penalty, md_kT) means the 200 adhesions created
-at MCS 0 are **never moved after creation** — the cell contracts *past* them and
-leaves them as orphaned `type=2` beads. The `retraction_displacements` path
-(adhesion_movement.cpp:25) that should migrate an adhesion inward when the
-boundary retracts over it is, in practice, **not relocating adhesions at all**
-on this build. The highest-value next step is therefore a **mechanism probe
-inside the engine**, not more parameter sweeps:
+**Correction to an earlier hypothesis:** the adhesions are *not* "never moved."
+I instrumented `AdhesionMover::commit_move` / `move_dh`, rebuilt `bin/adhesions`
+in the container, and ran a short sim. Result:
 
-- Instrument `CellularPotts::DeltaH` / the copy-attempt loop (ca.cpp ~494, the
-  `AmoebaeMove`/`ConvertSpin` path that passes `adh_disp`) to log, per MCS:
-  how many copy-attempts touch an adhesion voxel, how many are accepted, and
-  whether `adh_disp` is actually applied to the particle positions sent back to
-  the MD. Determine whether (a) retractions over adhesions are always rejected,
-  (b) the chosen displacement is always `(0,0)`/no-op, or (c) the applied move
-  is overwritten by the MD step.
-- Cross-check against the Merks lab's **actual** figure configuration (Zenodo
-  10.5281/zenodo.7906973 contents, or direct contact) — the public image is a
-  demo build and may differ from the paper's.
+- `RETR_OVER_ADH` (retractions over an adhesion voxel): **2121 attempts**
+- `ADHMOVE_TARGET` (committed adhesion moves): **876**, with real ±1px
+  displacements, and the dumped particles **do move** (`mean |Δ| ≈ 1.27 px/frame`,
+  max 10.63). The CPM→MD sync (`adhesion_index.cpp:195`
+  `record_move_particle` → `simulate_ecm.apply_interactions`) **works**.
 
-Items 2–5 of §4 (unit scaling, `gradient`, long runs, float `adh_dh`) remain
-necessary, but they are **downstream** of fixing why adhesions don't relocate —
-that is the gate.
+So the mechanism engages — it is **a rate/balance problem, not a sync bug**:
+
+- With `gradient` selection (the paper's argmin) the ECM genuinely resists:
+  at very low λ the cell does not contract at all (held at its initial area).
+- As λ rises past the hold threshold the cell contracts, but **fast** — to
+  equilibrium in ~80 MCS — so the boundary sweeps ~57 px inward while each
+  adhesion migrates only ~1–2 px. The boundary **outruns** the adhesions; they
+  are left at the original ring (~59–61 px) and the cell detaches.
+
+Measured (gradient, 400 MCS): λ=10→area 47, λ=50→6, λ=100→0 — all halt, but
+`adhR` stays ~59–61 in every case. The adhesions move; they just can't keep up.
+
+### The fix hypothesis — TESTED and refuted
+
+Hypothesis: `gradient` + low λ (~4–6) + paper timescale (~2000 MCS) would give
+gradual contraction with adhesions tracking the boundary. **Measured:**
+
+| λ | area over 2000 MCS                 | adhR          |
+|---|------------------------------------|---------------|
+| 4 | 13781 → **109** (by MCS 250, holds)| 58.1 (frozen) |
+| 6 | 13528 → **63** (by MCS 250, holds) | 58.5 (frozen) |
+
+Contraction is **still fast** (equilibrium by ~250 MCS); more MCS just holds the
+equilibrium longer. adhR never tracks it.
+
+**The deeper obstruction — bistability.** The adhesion/ECM resistance `adh_dh`
+is roughly *constant* (it does not grow as the cell contracts, because the
+fibers aren't actually dragged → no densification → no stiffening). So the
+system is **bistable**: `λ=3` → `adh_dh` exceeds the contraction drive and the
+cell doesn't contract *at all* (ECM fully holds it at ~39204); `λ≥4` → drive
+wins and the cell collapses to a small CPM-internal equilibrium, leaving the
+adhesions behind. There is **no intermediate regime** where the cell drags the
+adhesions to a *new, smaller* equilibrium — which is exactly the Merks behavior.
+
+The paper's gradual dragging needs the dragged-fiber resistance to *build up* as
+the matrix densifies (a positive feedback: drag → densify → stiffen → resist →
+equilibrium). That feedback never starts here, so you only ever get "hold" or
+"collapse". Escaping bistability almost certainly requires the paper's
+**unit-scaled** parameters (so `adh_dh` sits in the narrow commensurate band and
+grows with stretch) and likely the **float `adh_dh`** (R2) so sub-unit
+resistance isn't rounded away — i.e. items R2+R4, not a single knob.
+
+## 7. Conclusion & recommended path
+
+The coupling **mechanism is wired and works** (adhesions move, the ECM can
+resist), but the engine is **bistable between "ECM holds" and "cell collapses"**
+with no dragging-to-equilibrium regime reachable from any ymmsl parameter. This
+is a genuine wall for parameter tuning. To make it behave like Merks:
+
+1. **Patch `round(adh_dh)` → float accumulation** in `ca.cpp:575` and rebuild
+   the image (the instrumentation here already proved `bin/adhesions` rebuilds
+   cleanly in the container — this is a one-line change + rebuild).
+2. **Implement the physical→internal unit scaling** from Frontiers Table 1
+   (`K=Y·A/L`, `Y=10⁶ Pa`, fiber Ø 0.125 µm; the CPM energy/length/time
+   conversions) so `adh_dh` lands in the commensurate band *and* grows with
+   fiber stretch — the prerequisite for the drag→densify→stiffen feedback.
+3. **Obtain the Merks lab's exact figure configuration** (Zenodo
+   10.5281/zenodo.7906973 contents, or contact) — the definitive check that the
+   public demo build isn't missing a mechanism (e.g. a stiffening term).
+4. Only then re-run the paper's contraction experiment to equilibrium.
+
+Everything up to here (bridge, metrics, honest failing studies, this mechanistic
+map, the one-line rounding fix target) is the foundation that makes steps 1–4
+tractable.
 
 > Bridge fix landed while investigating: float-typed settings (`spring_k`,
 > `md_kT`, …) were written as ints and silently crashed every varied-stiffness
