@@ -22,6 +22,8 @@ dependencies = [
     "matplotlib",
     "plotly",
     "vivarium-workbench",
+    "pbg-superpowers",
+    "viva-cpm",
 ]
 
 [project.optional-dependencies]
@@ -35,3 +37,6 @@ markers = ["docker: integration tests that require a running Docker daemon + the
 
 [tool.uv.sources]
 vivarium-workbench = { path = "/Users/eranagmon/code/vivarium-workbench", editable = true }
+# viva-cpm is imported by this workspace (CPM engine + study helpers); pin to the
+# local checkout. Published builds should swap this for a versioned/git dependency.
+viva-cpm = { path = "/Users/eranagmon/code/viva-cpm", editable = true }

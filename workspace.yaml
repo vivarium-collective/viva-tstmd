@@ -41,3 +41,13 @@ datasets: []
 references_bib: workspace/references/papers.bib
 server:
   enabled: false
+
+# References
+references_bib: workspace/references/papers.bib
+references_pdfs:
+- bib_key: keijzer2026cpmecm3d
+  path: workspace/references/papers/keijzer-merks-2026-3d-cpm-ecm.pdf
+  sha256: 44cf5294b275670aa28822bb9d8c142504ca74ef67e3feba7c284961e978e44f
+- bib_key: keijzer2025focaladhesions
+  path: workspace/references/papers/keijzer-2025-focal-adhesions.pdf
+  sha256: cab867124a866c98916f8793385cf1d63422a284c2a63638d2b6ecf12e0181c7

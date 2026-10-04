@@ -1,0 +1,142 @@
+# merks-ecm-reciprocity-2d/investigation.yaml — schema v2
+schema_version: 2
+name: merks-ecm-reciprocity-2d
+title: "Cell-ECM mechanical reciprocity (Merks 3D CPM-ECM, 2D real-engine reproduction — FAILS: coupling gap)"
+created: '2026-10-03'
+status: running
+
+question: |
+  Can we reproduce the cell-ECM mechanical-reciprocity phenomena of Keijzer &
+  Merks 2026 (arXiv:2609.02375, a 3D hybrid cellular Potts model coupled to a
+  discrete deformable fiber network — code unreleased) by driving the REAL
+  published 2D ancestor engine (Tsingos et al. 2023 static-adhesion TST-MD)
+  on ordinary hardware?
+
+hypothesis: |
+  The 3D paper extends a published, open 2D engine. Bridged and run CPU-only,
+  that real engine should reproduce — at the mechanism level, in 2D — the same
+  reciprocity phenomena: a contractile cell deforms a crosslinked bead-spring
+  ECM, fibers reorient toward the cell (q/q0 > 1), and crosslinking builds
+  network connectivity (percolation).
+
+lead: |
+  The 3D target paper has no public code and runs on a GPU/HPC cluster. Rather
+  than reimplement it, this investigation bridges the actual published 2D
+  engine it descends from (Tsingos 2023) and runs it on a laptop via Docker,
+  then asks how much of the 3D paper's story the real 2D ancestor reproduces.
+  The honest answer: the mechanisms reproduce clearly; the quantitative
+  equilibrium figures need model calibration that is documented, not faked.
+
+executive:
+  what_is_this: |
+    A real-engine, 2D reproduction of the mechanical-reciprocity phenomena in a
+    recent (unreleased) 3D cell-ECM model from the Merks lab. The deliverable
+    has two parts: (1) viva-tstmd — a reusable process-bigraph bridge that runs
+    the genuine TST-MD simulator (TST C++ + HOOMD + MUSCLE3) CPU-only inside
+    Docker, with 19 tests; and (2) this investigation, which uses it to measure
+    the paper's observables on real runs. The reproduction currently FAILS its
+    paper-faithful bars — the study tests are intentionally left failing until
+    the cell-ECM coupling and percolation issues are resolved.
+  verdict: |
+    NOT REPRODUCED. The infrastructure goal is met — viva-tstmd runs the genuine
+    engine CPU-only — but the paper's core cell-ECM mechanical reciprocity does
+    NOT reproduce in this engine build at tractable scale. Both studies FAIL
+    their paper-faithful acceptance bars. The tests are intentionally left
+    failing until the underlying issues are fixed.
+
+    Where it fails (measured on real runs, every regime tried):
+      * Coupling — a contracting cell does NOT drag its adhesions / the
+        crosslinked ECM inward. The adhesion ring stays frozen (~58 px) while the
+        cell contracts 13000 -> ~0; the cell detaches from the ECM. q/q0 reaches
+        only ~1.09 and densification ~0 — far from the paper's Fig-4 remodeling.
+      * Percolation — the fiber network never percolates: the giant component
+        saturates at ~0.30 (bar >=0.8) even at ~13000 crosslinks, so the Fig-2B
+        mechanical regime is not reached.
+
+    What was established along the way (honest sub-results): the engine genuinely
+    runs and the cell contracts; crosslinking raises connectivity from a
+    disconnected network (the Fig-2B onset); and a REAL bridge bug (float-typed
+    settings written as ints, which silently crashed every varied-stiffness run)
+    was found + fixed. The coupling search exhausted the exposed parameters
+    (fiber stiffness, density, crosslinking, contractility lambda, md_kT,
+    adhesion-annihilation penalty, gradient/uniform displacement selection)
+    without engaging the dragging mechanism.
+
+    Likely cause: reproducing the coupled pulling needs the authors' exact
+    (undocumented) configuration or deeper engine work — the adhesion-retraction
+    mechanism is not dragging adhesions through any ymmsl-exposed knob. No
+    constant was tuned to fake a fit.
+  verdict_status: not-reproduced
+  decisions_needed:
+    - question: "Obtain the Merks lab's exact TST-MD parameter configuration (or collaborate) to engage the cell-ECM dragging mechanism?"
+      context: "Every exposed parameter was swept without the adhesions being dragged inward; the working config is not in the public code/docs."
+    - question: "Invest in deeper engine debugging of the adhesion-retraction / displacement mechanism?"
+      context: "The adhesion_movement code exists but adhesions never relocate in practice; this may be a fork issue or need conditions unreachable from the ymmsl."
+
+biological_story: |
+  Cells and the extracellular matrix (ECM) are in constant mechanical dialogue.
+  A cell anchors to the surrounding fiber network through adhesions and pulls:
+  the ECM resists, deforms, and remembers — fibers reorient toward the cell and
+  the matrix densifies locally. That resistance in turn shapes how far the cell
+  can contract or spread. This mutual push-and-pull, "mechanical reciprocity,"
+  is how tissues set their form in development, wound healing, and cancer
+  invasion.
+
+  The stiffness of the matrix is not a fixed material constant — it is built by
+  crosslinks that tie neighboring collagen fibers together. Below a critical
+  crosslink density the network is a loose collection of disconnected strands
+  that a cell can rearrange freely; above it, the fibers form a single connected
+  (percolated) scaffold that transmits force over long range and genuinely
+  resists the cell. Crosslinking is thus the knob that converts a floppy gel
+  into a load-bearing tissue.
+
+  This investigation watches that dialogue directly in a real simulator: a
+  contractile cell embedded in a crosslinked bead-spring ECM. We see the cell
+  contract and drag nearby fibers into radial alignment (reorientation), and we
+  see crosslinking knit the loose network into a connected scaffold (the onset
+  of percolation) — the two sides of the reciprocity the Merks-lab models were
+  built to study.
+
+scientific_argument:
+  main_claim: "The real published 2D engine, bridged and run on a laptop, does NOT reproduce the 3D paper's cell-ECM mechanical reciprocity at tractable scale: the cell detaches from its adhesions rather than dragging the ECM in, and the network never percolates. Both studies fail their paper-faithful bars; tests are left failing until fixed."
+  evidence_for:
+    - "The engine is the REAL TST-MD (not a reimplementation/mock); the cell genuinely contracts and crosslinking raises connectivity (the Fig-2B onset)."
+    - "A real bridge bug (float settings written as ints) was found + fixed, unblocking the full parameter search."
+  evidence_against:
+    - "Coupling FAILS: adhesion-ring radius stays ~58 px while the cell contracts 13000 -> ~0 — the cell detaches from the ECM in every regime (q/q0 only ~1.09, densification ~0)."
+    - "Percolation FAILS: giant component saturates at ~0.30 (bar >=0.8), never reaching the paper's connected regime."
+    - "Every exposed parameter (stiffness, density, crosslinking, lambda, md_kT, annihilation penalty, displacement selection) was swept without engaging the dragging mechanism."
+  key_figures:
+    - "tstmd-contraction-reorientation: contraction + q/q0 time series with start/end ECM snapshots."
+    - "tstmd-network-connectivity: giant component vs crosslinks created."
+  caveats:
+    - "2D (engine) vs 3D (target paper): mechanism/direction analog, not a dimensional match."
+    - "Static adhesions (as the 3D paper uses), not the dynamic focal adhesions of Keijzer 2025."
+    - "Reduced sizes for CPU tractability; single seed per condition."
+    - "Quantitative equilibrium figures (Fig 2 magnitude, Fig 3) require unit-scaling calibration — not attempted/claimed here."
+
+how_to_read: |
+  Start with the verdict above. Each study's interactive figure is built from
+  REAL engine output (no synthetic data). 'Mechanism-confirmed' means the
+  direction/qualitative behavior matches the paper; it is deliberately NOT a
+  claim of quantitative figure reproduction. The two 'evidence_against' points
+  and the calibration gap are the honest limits, not footnotes.
+
+glossary:
+  - {term: "TST-MD", definition: "The real 2D hybrid cellular Potts + bead-spring ECM engine (Tsingos et al. 2023), TST C++ + HOOMD + MUSCLE3. Bridged by viva-tstmd and run CPU-only via Docker."}
+  - {term: "Mechanical reciprocity", definition: "Cells deform/remodel the ECM while the ECM's mechanics shape the cell — the mutual coupling this investigation reproduces."}
+  - {term: "q/q0 (reorientation)", definition: "Fraction of fibers nearly radial to the cell (alignment gamma>=0.9, paper eq. 7) over its initial value; >1 means fibers reorient toward the cell."}
+  - {term: "Giant component", definition: "Fraction of ECM beads in the largest connected component of the bond+crosslink graph; a percolation measure (paper Fig 2B)."}
+  - {term: "Calibration gap", definition: "The quantitative equilibrium figures (Fig 2 magnitude, Fig 3) are not reproduced because mapping the authors' physical-unit parameters to the engine's internal units is unsolved here. Documented, not tuned away."}
+
+at_a_glance:
+  - {study: tstmd-contraction-reorientation, role: "FAILS the coupling bar. The cell contracts (13000->~0) but its adhesion ring stays frozen (~58 px) across every regime tried — the cell detaches from the ECM instead of dragging it inward (q/q0 only ~1.09, densification ~0). The paper's Fig-4 remodeling is NOT reproduced. (A real bridge bug — float settings written as ints — was found + fixed while investigating.)"}
+  - {study: tstmd-network-connectivity, role: "FAILS the percolation bar. Crosslinking raises the giant component from 0.0007 to ~0.30 but it SATURATES there — the network never percolates (~1.0) at CPU-tractable densities, so the paper's Fig-2B mechanical regime is not reached. The connectivity ONSET is reproduced; full percolation is not."}
+
+members:
+  - tstmd-contraction-reorientation
+  - tstmd-network-connectivity
+
+acceptance_criteria:
+  - {study: tstmd-contraction-reorientation, behavior: "FAILS. Paper bar: the contracting cell drags its adhesions + the crosslinked ECM inward (adhesion-ring radius shrinks with the cell; strong reorientation + densification). Measured: adhesion ring stays ~58 px while area 13000->~0; q/q0 only ~1.09; densification ~0. The cell-ECM coupling does not engage in any regime tried."}
+  - {study: tstmd-network-connectivity, behavior: "FAILS. Paper bar (Fig 2B): the giant component percolates (>=0.8) at high crosslinking. Measured: it saturates at ~0.30 and never percolates at CPU-tractable densities. The connectivity onset is reproduced; full percolation is not."}

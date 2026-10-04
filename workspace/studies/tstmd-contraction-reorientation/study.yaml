@@ -1,0 +1,173 @@
+schema_version: 3
+name: tstmd-contraction-reorientation
+status: complete
+phase: Evaluate
+title: Cell–ECM mechanical coupling (real TST-MD, 2D) — NOT reproduced
+confidence: Not-reproduced
+investigation: merks-ecm-reciprocity-2d
+
+question: >-
+  Does the real 2D static-adhesion hybrid CPM + bead-spring ECM engine (Tsingos
+  et al. 2023, the published ancestor of Merks' 3D model) reproduce the paper's
+  core mechanical-reciprocity result — a contractile cell that drags its focal
+  adhesions and the attached, crosslinked ECM inward, reorienting and densifying
+  the matrix?
+
+hypothesis: >-
+  A contractile cell coupled to the fiber network via adhesions will pull those
+  adhesions (and the crosslinked fibers they grip) toward its centre as it
+  contracts, so the adhesion-ring radius and near-fiber density track the cell
+  — reproducing Keijzer & Merks 2026 Fig 4.
+
+objective: >-
+  Run seeded coupled simulations through the real engine and measure, over the
+  contraction, the cell area, the adhesion-ring radius, the near-fiber radius,
+  and fiber reorientation q/q0 — testing whether the ECM is dragged inward.
+
+description: >-
+  REAL output of the TST-MD engine, driven CPU-only via the viva-tstmd Docker
+  bridge (TST C++ + HOOMD + MUSCLE3). This study evaluates the paper-faithful
+  coupling bar and FAILS it: across every parameter regime tried (fiber
+  stiffness stiff->soft, crosslink density, contractility lambda up to 400, MD
+  noise md_kT, adhesion-annihilation penalty, gradient vs uniform displacement
+  selection) the cell contracts but its adhesions stay frozen in place — the
+  cell detaches from the ECM rather than dragging it inward. This is the open
+  cell-ECM coupling / calibration gap, reported as a failing reproduction, not
+  hidden.
+
+readouts:
+  - name: Cell area
+    identifier: cell_area
+    units: lattice sites
+    status: measured
+    description: Count of lattice sites with spin sigma>=1 (the contractile cell).
+  - name: Adhesion-ring radius
+    identifier: adhesion_ring_radius
+    units: pixels
+    status: measured
+    description: Mean distance of adhesion particles (type 2) from the cell centroid; should shrink with the cell if the ECM is dragged inward.
+  - name: Reorientation ratio
+    identifier: q_ratio
+    units: dimensionless (q/q0)
+    status: measured
+    description: Fraction of fibers nearly radial to the cell (paper eq. 7) over its initial value.
+
+behavior_tests:
+  - name: Cell drags its adhesions (and the ECM) inward as it contracts
+    classification: primary
+    description: >-
+      PAPER BAR (Keijzer & Merks 2026, Fig 4): a contracting cell pulls its focal
+      adhesions and the attached crosslinked fibers toward its centre. Measure:
+      the adhesion-ring radius should shrink substantially as the cell area
+      falls. MEASURED (real engine): adhesion-ring radius stays ~58 px while the
+      cell contracts from ~13000 to ~0 lattice sites (change < 2%). The cell
+      detaches from its adhesions — coupling does NOT engage.
+    measure: adhesion_ring_radius
+    pass_if: adhesion-ring radius decreases by >= 30% as the cell contracts
+    status: failed
+    result: FAIL
+    paper_reference: Keijzer & Merks 2026, Fig 4A-D (cell drags/remodels the ECM)
+  - name: Fibers reorient strongly toward the cell (matrix remodeling)
+    classification: primary
+    description: >-
+      PAPER BAR: strong fiber reorientation toward the cell (q/q0 well above 1)
+      and local densification as the matrix is pulled in. MEASURED: q/q0 rises
+      only to ~1.09 and the densification factor stays ~0 (no accumulation) —
+      far below a reproduction of the paper's remodeling; consistent with the
+      ECM not being dragged inward.
+    measure: q_ratio
+    pass_if: q/q0 >= 1.4 (paper-scale reorientation) AND densification > 1.3
+    status: failed
+    result: FAIL
+    paper_reference: Keijzer & Merks 2026, Fig 4A-B (q/q0), Fig 4D-E (densification)
+
+visualizations:
+  - name: Simulation time-lapse (cell + ECM)
+    address: local:TstmdContractionVideo
+  - name: Contraction & reorientation — interactive
+    address: local:TstmdContractionReorientation
+embed_visualizations:
+  - name: Simulation video
+    title: The simulation unfolding — cell contracts but detaches from a static adhesion ring (play ▶)
+    url: /workspace/studies/tstmd-contraction-reorientation/viz/video.html
+  - name: Interactive figure
+    title: Contraction dynamics + fiber reorientation (+ start/end ECM snapshots)
+    url: /workspace/studies/tstmd-contraction-reorientation/viz/interactive.html
+
+findings:
+  - id: F-01
+    kind: computational
+    status: contradicts
+    evidence:
+      from_test: Cell drags its adhesions (and the ECM) inward as it contracts
+      observed: "adhesion-ring radius constant ~58 px while cell area 13000 -> ~0"
+    statement: >-
+      The real TST-MD engine does NOT reproduce the paper's cell-ECM coupling in
+      any regime tried: the cell contracts but its adhesion ring stays frozen —
+      the cell detaches from the ECM instead of dragging it inward.
+  - id: F-02
+    kind: methodological
+    status: partial
+    statement: >-
+      What DOES hold (sub-reproduction): the cell genuinely contracts
+      (13000 -> ~0) and shows weak reorientation (q/q0 ~1.09). But these are not
+      the paper's remodeling result; densification stays ~0. A real bridge bug
+      (float-typed settings written as ints) was found + fixed while
+      investigating, which unblocked the parameter search.
+
+conclusion: >-
+  FAILING reproduction. The real 2D engine contracts the cell but does not drag
+  its adhesions / the crosslinked ECM inward — the mechanical coupling that
+  produces Keijzer & Merks 2026's Fig-4 remodeling does not engage through any
+  exposed parameter. Reproducing it needs the authors' exact configuration or
+  deeper engine work (see investigation caveats).
+
+key_assumptions:
+  - 2D (the engine is 2D; the target paper is 3D) — mechanism analog at best.
+  - Static adhesions (as in the 3D paper), not the dynamic focal adhesions of Keijzer et al. 2025.
+  - Reduced size vs the paper's HPC scale for CPU tractability.
+
+gate_status: failed
+runs:
+  - run_id: tstmd-contraction-reorientation-real
+    name: real coupled TST-MD run (single contractile cell, 300 MCS)
+    status: completed
+    canonical: true
+    timestamp: '2026-10-04'
+    seeds:
+      - 12345678
+    emitter: baked real-run data in pbg_tstmd/visualizations/_tstmd_spatial.py (engine run externally via viva-tstmd; not through the dashboard run-logger)
+    outcomes:
+      Cell drags its adhesions (and the ECM) inward as it contracts:
+        result: FAIL
+        measured_value: "adhesion-ring radius ~58 px, constant (<2% change) while area 13000 -> ~0"
+        notes: cell detaches from adhesions; coupling does not engage in any regime
+        evaluated_by: viva-tstmd (pbg_tstmd adhesion-ring diagnostic)
+      Fibers reorient strongly toward the cell (matrix remodeling):
+        result: FAIL
+        measured_value: "q/q0 ~1.09 (paper bar >=1.4); densification ~0 (bar >1.3)"
+        notes: weak reorientation, no densification — not the paper's remodeling
+        evaluated_by: viva-tstmd (pbg_tstmd.analysis)
+
+conditions:
+  baseline:
+    name: baseline
+    composite: pbg_tstmd.composites.tstmd.tstmd_coupled
+    params: {n_cross: 8000, fiber_stiffness: 200.0, target_area: 0, mcs: 300}
+  model_settings: []
+
+variants:
+  - name: reference
+    description: Single contractile cell in a crosslinked ECM; swept stiffness, density, lambda, md_kT, adhesion-annihilation penalty, and displacement selection.
+
+simulation_set:
+  - name: coupling-parameter-search
+    kind: coupled CPM + bead-spring ECM (real TST-MD via viva-tstmd/Docker)
+    status: completed
+    base_model: pbg_tstmd.composites.tstmd.tstmd_coupled
+    duration_steps: 300
+    seeds: [12345678]
+    metrics: [cell_area, adhesion_ring_radius, q_ratio]
+    pass_fail_tests:
+      - Cell drags its adhesions (and the ECM) inward as it contracts
+      - Fibers reorient strongly toward the cell (matrix remodeling)

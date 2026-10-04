@@ -1,0 +1,142 @@
+schema_version: 3
+name: tstmd-network-connectivity
+status: complete
+phase: Evaluate
+title: ECM network percolation vs crosslinking (real TST-MD, 2D) — NOT reproduced
+confidence: Not-reproduced
+investigation: merks-ecm-reciprocity-2d
+
+question: >-
+  Does the real 2D bead-spring ECM engine reproduce the paper's network
+  percolation (Keijzer & Merks 2026, Fig 2B) — the giant component rising to a
+  fully connected (~1.0) network at high crosslinking, the regime in which the
+  matrix mechanically resists and transmits cell forces long-range?
+
+hypothesis: >-
+  Increasing the number of crosslinks drives the fiber network through a
+  percolation transition, so the giant-component fraction approaches ~1.0 at
+  high crosslink density (as in the paper).
+
+objective: >-
+  Sweep the requested crosslink count over {0, 500, 2000, 5000, 10000, 20000}
+  through the real engine and measure the giant-component fraction of the built
+  network, testing whether it percolates.
+
+description: >-
+  REAL output of the TST-MD engine via the viva-tstmd Docker bridge. This study
+  evaluates the paper-faithful percolation bar and FAILS it: at CPU-tractable
+  sizes the giant component rises from 0.0007 (no crosslinks) but SATURATES at
+  ~0.30 even at ~13000 created crosslinks — the network never percolates. The
+  onset of connectivity is reproduced; full percolation (the regime the paper's
+  mechanics depend on) is not.
+
+readouts:
+  - name: Giant-component fraction
+    identifier: giant_component
+    units: fraction of beads
+    status: measured
+    description: Size of the largest connected component (beads = nodes, bonds+crosslinks = edges) / number of beads.
+  - name: Crosslinks created
+    identifier: crosslinks_created
+    units: count
+    status: measured
+    description: Crosslink bonds actually formed for each requested count.
+
+behavior_tests:
+  - name: Fiber network percolates at high crosslinking
+    classification: primary
+    description: >-
+      PAPER BAR (Keijzer & Merks 2026, Fig 2B): the giant component rises
+      sharply and approaches a fully connected network (~1.0) at high crosslink
+      density. MEASURED (real engine): giant component rises 0.0007 -> ~0.30 and
+      then SATURATES — it never percolates (max ~0.30 at ~13000 crosslinks). The
+      connectivity ONSET is reproduced; full percolation is NOT.
+    measure: giant_component
+    pass_if: giant_component reaches >= 0.8 at the highest crosslink setting
+    status: failed
+    result: FAIL
+    paper_reference: Keijzer & Merks 2026, Fig 2B (network percolation / giant component)
+
+visualizations:
+  - name: Network build-up (video)
+    address: local:TstmdNetworkVideo
+  - name: Network connectivity — interactive
+    address: local:TstmdNetworkConnectivity
+embed_visualizations:
+  - name: Network video
+    title: Crosslinking raises connectivity but the network never percolates (play ▶)
+    url: /workspace/studies/tstmd-network-connectivity/viz/video.html
+  - name: Interactive figure
+    title: Giant-component fraction vs crosslinks created (saturates ~0.30)
+    url: /workspace/studies/tstmd-network-connectivity/viz/interactive.html
+
+findings:
+  - id: F-01
+    kind: computational
+    status: contradicts
+    evidence:
+      from_test: Fiber network percolates at high crosslinking
+      observed: "giant component 0.0007 -> ~0.30 (saturates); max ~0.30 at ~13000 crosslinks"
+    statement: >-
+      The real engine does NOT reproduce the paper's percolated network at
+      CPU-tractable sizes: the giant component saturates at ~0.30 and never
+      approaches full percolation (~1.0). The connectivity onset is reproduced;
+      the percolated regime is not.
+  - id: F-02
+    kind: methodological
+    status: partial
+    statement: >-
+      Sub-reproduction that DOES hold: crosslinking sharply raises connectivity
+      from a disconnected network (0.0007 -> 0.18 at the first crosslinks) — the
+      onset direction of Fig 2B. Reaching full percolation likely needs
+      near-paper-scale densities beyond what runs CPU-tractably here.
+
+conclusion: >-
+  FAILING reproduction of Fig 2B. Crosslinking raises connectivity, but the
+  network saturates at a ~0.30 giant component and never percolates at tractable
+  densities — so the mechanical regime the paper's force-transmission depends on
+  is not reached. Documented, not tuned away.
+
+key_assumptions:
+  - Giant component measured on the built network (roughly constant over a run).
+  - Reduced densities vs paper HPC scale; 1 seed per crosslink setting.
+  - requested crosslinks != created (crosslink_max_r gating); created count is the honest x-axis.
+
+gate_status: failed
+runs:
+  - run_id: tstmd-network-connectivity-real
+    name: real crosslink sweep (6 settings) through TST-MD
+    status: completed
+    canonical: true
+    timestamp: '2026-10-04'
+    seeds:
+      - 12345678
+    emitter: baked real-run data in pbg_tstmd/visualizations/_tstmd_data.py (engine run externally via viva-tstmd)
+    outcomes:
+      Fiber network percolates at high crosslinking:
+        result: FAIL
+        measured_value: "giant component saturates ~0.30 (bar >=0.80); max ~0.30 at ~13000 crosslinks"
+        notes: connectivity onset reproduced; full percolation not reached at tractable densities
+        evaluated_by: viva-tstmd (pbg_tstmd.analysis.giant_component_fraction)
+
+conditions:
+  baseline:
+    name: baseline
+    composite: pbg_tstmd.composites.tstmd.tstmd_coupled
+    params: {n_cross: 5000, fiber_stiffness: 200.0, target_area: 10, mcs: 20}
+  model_settings: []
+
+variants:
+  - name: reference
+    description: Crosslink sweep over requested {0, 500, 2000, 5000, 10000, 20000} on a 1500-strand network.
+
+simulation_set:
+  - name: crosslink-sweep
+    kind: real ECM network generation (TST-MD via viva-tstmd/Docker), 6 crosslink settings
+    status: completed
+    base_model: pbg_tstmd.composites.tstmd.tstmd_coupled
+    duration_steps: 20
+    seeds: [12345678]
+    metrics: [giant_component, crosslinks_created]
+    pass_fail_tests:
+      - Fiber network percolates at high crosslinking
