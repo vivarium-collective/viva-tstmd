@@ -68,10 +68,14 @@ executive:
     constant was tuned to fake a fit.
   verdict_status: not-reproduced
   decisions_needed:
-    - question: "Obtain the Merks lab's exact TST-MD parameter configuration (or collaborate) to engage the cell-ECM dragging mechanism?"
-      context: "Every exposed parameter was swept without the adhesions being dragged inward; the working config is not in the public code/docs."
-    - question: "Invest in deeper engine debugging of the adhesion-retraction / displacement mechanism?"
-      context: "The adhesion_movement code exists but adhesions never relocate in practice; this may be a fork issue or need conditions unreachable from the ymmsl."
+    - question: "Refactor CellularPotts::DeltaH to floating point (stop int-rounding adh_dh) and rebuild the image?"
+      context: "ca.cpp:575 rounds the ECM work to int, erasing sub-unit resistance. Engine instrumentation confirmed adhesions DO move (sync works); the blocker is bistability. See study followup_proposals FP-01 and docs/cell-ecm-coupling.md."
+    - question: "Implement physical->internal unit-scaling (Frontiers Table 1, K=Y*A/L) so adh_dh grows with fiber stretch and escapes bistability?"
+      context: "The drag->densify->stiffen feedback never ignites because resistance is ~constant. This is the principled fix that should also recover Fig 2/3 magnitudes. See FP-02."
+    - question: "Obtain the Merks lab's exact figure configuration (Zenodo 7906973 / contact) to confirm the public demo build isn't missing a mechanism?"
+      context: "The paper's contraction-experiment parameters are not in the public code/docs. See FP-03."
+    - question: "Run the percolation study at near-paper-scale density on GPU/HOOMD?"
+      context: "Giant component saturates ~0.30 at CPU-tractable sizes. See tstmd-network-connectivity FP-01/FP-02."
 
 biological_story: |
   Cells and the extracellular matrix (ECM) are in constant mechanical dialogue.

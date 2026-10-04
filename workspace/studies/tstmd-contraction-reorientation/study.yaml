@@ -100,11 +100,18 @@ findings:
     status: contradicts
     evidence:
       from_test: Cell drags its adhesions (and the ECM) inward as it contracts
-      observed: "adhesion-ring radius constant ~58 px while cell area 13000 -> ~0"
+      observed: "adhesion-ring radius ~58 px, roughly constant, while cell area 13000 -> ~0; bistable (hold at lambda<=3 vs collapse at lambda>=4)"
     statement: >-
-      The real TST-MD engine does NOT reproduce the paper's cell-ECM coupling in
-      any regime tried: the cell contracts but its adhesion ring stays frozen —
-      the cell detaches from the ECM instead of dragging it inward.
+      The real TST-MD engine does NOT reproduce the paper's cell-ECM coupling.
+      Engine instrumentation (rebuilt bin/adhesions, logged AdhesionMover) shows
+      the CPM DOES move adhesions (876 commits, ~1.27px/frame) and the CPM->MD
+      sync works — so it is NOT a sync bug. The obstruction is BISTABILITY: the
+      ECM resistance adh_dh is ~constant (fibers aren't dragged -> no
+      densification -> no stiffening feedback), so the engine only ever fully
+      holds the cell (lambda<=3, no contraction) or lets it collapse leaving the
+      adhesions behind (lambda>=4), even at 2000 MCS with gradient selection. No
+      drag-to-new-equilibrium regime is reachable from any ymmsl parameter. See
+      followup_proposals + viva-tstmd/docs/cell-ecm-coupling.md.
   - id: F-02
     kind: methodological
     status: partial
@@ -171,3 +178,38 @@ simulation_set:
     pass_fail_tests:
       - Cell drags its adhesions (and the ECM) inward as it contracts
       - Fibers reorient strongly toward the cell (matrix remodeling)
+
+# Decisions / follow-ups — concrete next steps to make the coupling behave like Merks.
+followup_proposals:
+  - id: fp-01
+    title: Refactor CellularPotts::DeltaH to floating point (stop int-rounding the ECM work)
+    motivation: >-
+      ca.cpp:575 does `DH += static_cast<int>(round(adh_dh))`, so sub-unit ECM
+      resistance (soft fibers) is rounded to zero and never influences
+      acceptance. Faithful mechanics need adh_dh to contribute continuously.
+    hypothesized_mechanism: >-
+      Make DeltaH return/accumulate double across ca.cpp and the Metropolis
+      step, then rebuild bin/adhesions (verified rebuildable in-container).
+    status: proposed
+  - id: fp-02
+    title: Physical->internal unit-scaling from Frontiers Table 1 (escape bistability)
+    motivation: >-
+      The coupling is bistable — the ECM either fully holds the cell (lambda<=3)
+      or the cell collapses leaving adhesions behind (lambda>=4); no
+      drag-to-new-equilibrium regime is reachable from any ymmsl parameter,
+      because adh_dh is ~constant (fibers aren't dragged -> no densification ->
+      no stiffening feedback).
+    hypothesized_mechanism: >-
+      Derive internal spring_k/crosslink_k/lambda/target from Table 1 (K=Y*A/L,
+      Y=1e6 Pa, fiber diam 0.125um) so adh_dh lands in the commensurate band AND
+      grows with fiber stretch, igniting the drag->densify->stiffen feedback.
+    status: proposed
+  - id: fp-03
+    title: Obtain the Merks lab's exact figure configuration
+    motivation: >-
+      Every public config is a demo build; the paper's contraction experiment
+      parameters are not in the public code/docs. The definitive check.
+    hypothesized_mechanism: >-
+      Retrieve the figure .par/.ymmsl from Zenodo 10.5281/zenodo.7906973 or by
+      contacting the authors; diff against our regime.
+    status: proposed

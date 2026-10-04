@@ -140,3 +140,26 @@ simulation_set:
     metrics: [giant_component, crosslinks_created]
     pass_fail_tests:
       - Fiber network percolates at high crosslinking
+
+# Decisions / follow-ups.
+followup_proposals:
+  - id: fp-01
+    title: Reach percolation at near-paper-scale fiber/crosslink density (GPU/HOOMD)
+    motivation: >-
+      Giant component saturates at ~0.30 at CPU-tractable densities and never
+      percolates (~1.0). The paper's percolation (and the long-range force
+      transmission it enables) needs far higher strand/crosslink density.
+    hypothesized_mechanism: >-
+      Run make_ecm at paper-scale strands + num_init_crosslinks on a CUDA
+      GPU (md_use_gpu) so HOOMD can integrate the dense network; sweep
+      num_init_crosslinks across the transition.
+    status: proposed
+  - id: fp-02
+    title: Measure the percolation threshold (giant component vs crosslinks) at scale
+    motivation: >-
+      Locate the sharp giant-component rise and compare its position to the 3D
+      paper's ~15000-crosslink threshold (Fig 2B).
+    hypothesized_mechanism: >-
+      Dense sweep of num_init_crosslinks at paper-scale density; fit the
+      giant-component(crosslinks) curve.
+    status: proposed
