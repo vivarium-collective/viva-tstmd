@@ -22,7 +22,7 @@ dependencies = [
     "matplotlib",
     "plotly",
     "vivarium-workbench",
-    "pbg-superpowers",
+    "viva-superpowers",
     "viva-cpm",
 ]
 
@@ -39,5 +39,6 @@ markers = ["docker: integration tests that require a running Docker daemon + the
 # Git deps so the public repo is buildable by anyone. For local iteration, add a
 # uv.toml / pip-install -e the sibling checkouts to override these.
 vivarium-workbench = { git = "https://github.com/vivarium-collective/vivarium-workbench.git", branch = "main" }
+viva-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main" }
 # viva-cpm is imported by this workspace (CPM engine + study helpers).
 viva-cpm = { git = "https://github.com/vivarium-collective/viva-cpm.git", branch = "main" }
