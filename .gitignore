@@ -8,7 +8,6 @@ build/
 output/
 run_adhesions_*/
 *.pickle
-.pbg/
 reports/published/
 .idea/
 .runs/
