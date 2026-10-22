@@ -8,7 +8,7 @@
 # re-scaffolding, or by copying the current source from
 #   vivarium-collective/viva-template/template/.github/workflows/<template>
 # template: workspace-ci.yml.j2
-# sha256: 92da4c0734e3e434c7c57e64546d05f8edfddf0e6ec6b65a836e20449dfd1e64
+# sha256: 386f5ab7b152a6d9f952e47b8e96da0fea2aaf902ca360b5be0106407bbf35ea
 # <<< viva-template-provenance <<<
 
 name: workspace-ci
@@ -65,40 +65,6 @@ jobs:
           else
             echo "scripts/check-no-local-paths.sh not present — skipping local-path check."
           fi
-      # The single biggest recurring CI failure across the org was an INCOMPLETE
-      # pbg- -> viva- rebrand: a pyproject.toml still declaring
-      # `name = "pbg-..."`, or depending on a `pbg-*` package, makes uv abort the
-      # install with `Package metadata name 'pbg-...' does not match given name
-      # 'viva-...'`. Catch it here — early, before any venv/install step — so the
-      # failure is a clear, actionable message instead of an opaque uv metadata
-      # error, and so a future repo can never reintroduce the mismatch. Repo-only
-      # (grep on a committed file), so it needs nothing but the checkout.
-      - name: Guard against stale pbg- names
-        run: |
-          if [ ! -f pyproject.toml ]; then
-            echo "No pyproject.toml — skipping pbg- name guard."
-            exit 0
-          fi
-          fail=0
-          # 1. The project's own declared name must not be pbg-*.
-          if grep -Eq "^[[:space:]]*name[[:space:]]*=[[:space:]]*[\"']?pbg-" pyproject.toml; then
-            echo "::error title=Stale pbg- package name::pyproject.toml declares a 'pbg-*' package name. The pbg- -> viva- rebrand is incomplete: rename it to 'viva-*'. A 'pbg-' name makes uv fail with \"Package metadata name 'pbg-...' does not match given name 'viva-...'\"."
-            grep -nE "^[[:space:]]*name[[:space:]]*=[[:space:]]*[\"']?pbg-" pyproject.toml || true
-            fail=1
-          fi
-          # 2. No dependency / source line may reference a pbg-* package
-          #    (e.g. pbg-superpowers, pbg-basic-processes, or `pbg-... @ git+...`).
-          #    Match `pbg-` preceded by start-of-line or a non-identifier char
-          #    (quote, bracket, space, comma) and followed by a package char.
-          if grep -Eq "(^|[^A-Za-z0-9_])pbg-[A-Za-z0-9]" pyproject.toml; then
-            echo "::error title=Stale pbg- dependency::pyproject.toml references a 'pbg-*' package (dependency or git source). The pbg- -> viva- rebrand is incomplete: repoint it to the renamed 'viva-*' package."
-            grep -nE "(^|[^A-Za-z0-9_])pbg-[A-Za-z0-9]" pyproject.toml || true
-            fail=1
-          fi
-          if [ "$fail" -ne 0 ]; then
-            exit 1
-          fi
-          echo "No stale pbg- names in pyproject.toml."
       - name: Init external submodules (best-effort, non-recursive)
         run: |
           # Default `git submodule update` is non-recursive — omit --recursive
@@ -187,19 +153,9 @@ jobs:
           # copying the current source from
           #   vivarium-collective/viva-template/template/.github/workflows/
           # The checker is stdlib-only; an unreachable upstream (network flake or
-          # an older pin) is already treated as non-fatal inside the script.
-          #
-          # Drift here is NOT a defect in the workspace — it just means
-          # viva-template moved on. Gating merges on it turned every downstream
-          # workspace repo red whenever viva-template changed. So, like the
-          # README-freshness step above, this is a NON-BLOCKING warning: it
-          # surfaces the drift via ::warning but lets the job continue. Refresh
-          # by re-scaffolding, or copy the current source from
-          #   vivarium-collective/viva-template/template/.github/workflows/
+          # an older pin) is treated as non-fatal — only real drift fails here.
           if [ -f scripts/check-workflow-freshness.py ]; then
-            if ! python scripts/check-workflow-freshness.py --check; then
-              echo "::warning title=Stale generated workflows::Generated GitHub Actions workflows have drifted from viva-template. Refresh by re-scaffolding, or copy the current source from vivarium-collective/viva-template/template/.github/workflows/."
-            fi
+            python scripts/check-workflow-freshness.py --check
           else
             echo "scripts/check-workflow-freshness.py not present — skipping workflow drift check."
           fi
@@ -208,3 +164,23 @@ jobs:
         run: |
           source .venv/bin/activate
           pytest tests/ -v --color=yes
+
+      - name: Publish render check (no study would 404)
+        run: |
+          # The deploy job (publish-dashboard.yml) renders one read-only shell
+          # per study. If any study fails to render, the published site 404s on
+          # opening it. That guard already lives in the deploy — but the deploy
+          # runs AFTER merge, so a study-render break reaches the live site
+          # before anyone sees it. Run the SAME snapshot build here, as a
+          # required PR gate, so the break is caught before merge. Mirror the
+          # deploy's vivarium-workbench@main install so the gate tests exactly
+          # what will deploy.
+          source .venv/bin/activate
+          uv pip install --reinstall-package vivarium-workbench "vivarium-workbench @ git+https://github.com/vivarium-collective/vivarium-workbench.git@main"
+          if vivarium-workbench-publish --help >/dev/null 2>&1; then
+            # A non-zero exit here means "the snapshot would 404 on opening one
+            # or more studies" — fail the PR rather than the live site.
+            vivarium-workbench-publish --workspace . --out "${RUNNER_TEMP:-/tmp}/render-check"
+          else
+            echo "vivarium-workbench-publish unavailable (older pin) — skipping render check."
+          fi

@@ -8,7 +8,7 @@
 # re-scaffolding, or by copying the current source from
 #   vivarium-collective/viva-template/template/.github/workflows/<template>
 # template: build-and-push.yml
-# sha256: 6b95c2b2163ca5c9479dd5091399ca4ec4651e584d9e3ab191ddccd6a8fcef32
+# sha256: b664233a93356f4ad1ea4bcf610ba9b538c33a774131285c27124eaf13672559
 # <<< viva-template-provenance <<<
 
 name: Build and Push Workspace Image
@@ -45,22 +45,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: recursive
-
-      # Fail fast with an actionable message when the workspace has no
-      # Dockerfile. Without this, docker/build-push-action aborts deep in the
-      # build with a cryptic "failed to read dockerfile: no such file or
-      # directory" — which is how several workspaces (e.g. viva-biomodels,
-      # viva-membrane-actin-composite) sat red without an obvious cause. A repo
-      # carrying this workflow is declaring it builds an image, so a missing
-      # Dockerfile is a real misconfiguration: surface it clearly and stop
-      # before the heavy QEMU/buildx setup.
-      - name: Preflight — require a Dockerfile
-        run: |
-          if [ ! -f Dockerfile ]; then
-            echo "::error title=No Dockerfile::This repo has the \"Build and Push Workspace Image\" workflow but no ./Dockerfile, so no image can be built. Add one (copy vivarium-collective/viva-template/template/Dockerfile and adapt it), or delete this workflow if the workspace does not publish a container image."
-            exit 1
-          fi
-          echo "Dockerfile present — proceeding with image build."
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
