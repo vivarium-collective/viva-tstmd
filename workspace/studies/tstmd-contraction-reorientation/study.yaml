@@ -162,11 +162,10 @@ conditions:
     composite: pbg_tstmd.composites.tstmd.tstmd_coupled
     params: {n_cross: 8000, fiber_stiffness: 200.0, target_area: 0, mcs: 300}
   model_settings: []
-
-variants:
-  - name: reference
-    description: Single contractile cell in a crosslinked ECM; swept stiffness, density, lambda, md_kT, adhesion-annihilation penalty, and displacement selection.
-
+  variants:
+    - name: reference
+      composite: pbg_tstmd.composites.tstmd.tstmd_coupled
+      description: Single contractile cell in a crosslinked ECM; swept stiffness, density, lambda, md_kT, adhesion-annihilation penalty, and displacement selection.
 simulation_set:
   - name: coupling-parameter-search
     kind: coupled CPM + bead-spring ECM (real TST-MD via viva-tstmd/Docker)

@@ -125,11 +125,10 @@ conditions:
     composite: pbg_tstmd.composites.tstmd.tstmd_coupled
     params: {n_cross: 5000, fiber_stiffness: 200.0, target_area: 10, mcs: 20}
   model_settings: []
-
-variants:
-  - name: reference
-    description: Crosslink sweep over requested {0, 500, 2000, 5000, 10000, 20000} on a 1500-strand network.
-
+  variants:
+    - name: reference
+      composite: pbg_tstmd.composites.tstmd.tstmd_coupled
+      description: Crosslink sweep over requested {0, 500, 2000, 5000, 10000, 20000} on a 1500-strand network.
 simulation_set:
   - name: crosslink-sweep
     kind: real ECM network generation (TST-MD via viva-tstmd/Docker), 6 crosslink settings
