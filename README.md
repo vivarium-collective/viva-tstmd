@@ -13,19 +13,104 @@
 **[Open the read-only workbench](https://vivarium-collective.github.io/viva-tstmd/workbench/)** to browse every composite, study, and result in your browser — or run it locally (below).
 <!-- END:dashboard -->
 
-A process-bigraph bridge to the **real** TST-MD engine — the hybrid
-cellular-Potts + bead-spring ECM simulator of Tsingos et al. 2023
-(Biophys. J.), the published 2D ancestor of Merks' 3D model
-(Keijzer & Merks 2026, arXiv:2609.02375).
+A [process-bigraph](https://github.com/vivarium-collective/process-bigraph) bridge
+to the **real** TST-MD engine — the hybrid cellular-Potts + bead-spring ECM
+simulator of Tsingos et al. 2023 (Biophys. J.), the published 2D ancestor of
+Merks' 3D model (Keijzer & Merks 2026, arXiv:2609.02375).
 
 The engine runs **CPU-only inside a Docker image** (`sbrshakibi/tst2-docker`,
-linux/amd64; no GPU). This package injects parameters via a YMMSL override,
+`linux/amd64`; no GPU). This package injects parameters via a YMMSL override,
 runs the coupled simulation headless, parses its pickle state dumps, and
-exposes it as a process-bigraph Process plus pure-Python metrics that
-reproduce the paper's ECM-remodeling measures (percolation, fiber
-reorientation q/q0, densification).
+exposes it as a process-bigraph `Process` plus pure-Python metrics that
+reproduce the paper's ECM-remodeling measures (percolation / giant component,
+fiber reorientation `q`/`q0`, densification).
 
-See `docs/engine-io.md` for the confirmed run recipe and pickle schema.
+See [`docs/engine-io.md`](docs/engine-io.md) for the confirmed run recipe and
+pickle schema. This workspace drives the `merks-ecm-reciprocity-2d`
+reproduction investigation.
 
-Built to drive the `merks-ecm-reciprocity-2d` reproduction investigation in
-the viva-cpm workspace.
+## Installation
+
+```bash
+pip install git+https://github.com/vivarium-collective/viva-tstmd.git
+```
+
+Actually *running* the engine additionally requires a reachable Docker daemon
+and the engine image:
+
+```bash
+docker pull --platform linux/amd64 sbrshakibi/tst2-docker:latest
+```
+
+`pbg_tstmd.runtime.docker_available()` and `image_present()` report whether
+these prerequisites are met. Everything else (metrics, composite wiring,
+structural composition) imports and tests without Docker.
+
+## Quick start
+
+Run one coupled simulation and read the equilibrium observables:
+
+```python
+from pbg_tstmd import TstmdEcmProcess, build_core
+
+core = build_core()                       # registers "TstmdEcmProcess"
+proc = TstmdEcmProcess(config={"mcs": 300, "target_area": 50}, core=core)
+equilibrium = proc.update({}, interval=1.0)
+# -> {"cell_area", "giant_component", "reorientation_q", "densification", "mcs"}
+```
+
+For the full per-dump trajectory (not just the final state), call the
+lower-level driver directly:
+
+```python
+from pbg_tstmd.processes import run_once, run_sweep
+
+out = run_once({"mcs": 300, "make_ecm.num_init_crosslinks": 2000})
+out["trajectory"]        # list of per-snapshot metrics (each carries q_ratio = q/q0)
+out["q0"], out["equilibrium"], out["crosslinks_created"]
+
+# Sweep one parameter across values x seeds; resilient to per-point failures:
+results = run_sweep("make_ecm.num_init_crosslinks", [1000, 2000, 4000])
+```
+
+Each `TstmdEcmProcess.update` runs a **complete** `mcs`-step trajectory (the
+engine is one-shot and cannot resume) and emits the final-snapshot observables
+as `overwrite[float]` ports.
+
+## Contents
+
+- **`pbg_tstmd.processes`** — `TstmdEcmProcess` (process-bigraph `Process`
+  surface), plus `run_once` / `run_sweep` / `metrics_for_snapshot` drivers.
+- **`pbg_tstmd.runtime`** — `TstmdSession`, the Docker-backed engine driver
+  (parameter injection, headless run, pickle parsing to plain numpy), with
+  `docker_available()` / `image_present()` checks and `DEFAULT_SETTINGS`.
+- **`pbg_tstmd.analysis`** — pure-Python ECM-remodeling metrics:
+  `giant_component_fraction`, `reorientation_q`, `q_by_distance`,
+  `densification_factor`, `ratio_with_nan_guard`.
+- **`pbg_tstmd.core`** — `build_core()`, the explicit core builder that
+  registers `TstmdEcmProcess`.
+- **`pbg_tstmd.composites`** — the `tstmd_coupled` composite generator, which
+  wires the Process by address (`local:TstmdEcmProcess`) so documents build
+  structurally without the Docker backend.
+- **`pbg_tstmd.visualizations`** — study visualizations for the investigation.
+- **`workspace/`** — the `merks-ecm-reciprocity-2d` investigation, its studies,
+  references, and reports.
+
+## Configuration
+
+`TstmdEcmProcess.config_schema` exposes `n_cross`, `fiber_stiffness`,
+`target_area`, `mcs`, `strands`, `n_beads`, `output_interval`, and `seed`;
+these map onto the engine's YMMSL settings (see `_settings` and
+`runtime.DEFAULT_SETTINGS`). The defaults are a CPU-tractable single
+contractile cell in a fibrous ECM, reduced from the paper's HPC sweeps.
+
+## Links
+
+- [process-bigraph](https://github.com/vivarium-collective/process-bigraph)
+- [vivarium-collective](https://github.com/vivarium-collective)
+- Tsingos et al. 2023, *Biophys. J.* — the TST-MD model this bridges
+- Keijzer & Merks 2026, arXiv:2609.02375 — the 3D descendant
+
+## License
+
+MIT
