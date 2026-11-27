@@ -2384,7 +2384,6 @@ dependencies = [
     { name = "pyyaml" },
     { name = "viva-cpm" },
     { name = "viva-superpowers" },
-    { name = "vivarium-workbench" },
 ]
 
 [package.optional-dependencies]
@@ -2407,7 +2406,6 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "viva-cpm", git = "https://github.com/vivarium-collective/viva-cpm.git?branch=main" },
     { name = "viva-superpowers", git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main" },
-    { name = "vivarium-workbench", git = "https://github.com/vivarium-collective/vivarium-workbench.git?branch=main" },
 ]
 provides-extras = ["dev"]
 
